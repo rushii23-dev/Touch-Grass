@@ -47,8 +47,13 @@ export function PocketGuardCard() {
   return (
     <MinimalCard>
       <div className="flex flex-col items-start text-left">
-        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-          <Compass className="w-5 h-5" />
+        <div className="flex items-center justify-between w-full mb-4">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Compass className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+            Gyro Guard
+          </span>
         </div>
         <h3 className="text-sm font-semibold text-white tracking-wide">
           Pocket Guard
