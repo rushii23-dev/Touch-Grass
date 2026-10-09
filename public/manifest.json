@@ -1,0 +1,18 @@
+{
+  "name": "Touch Grass — Screen-Free Companion",
+  "short_name": "Touch Grass",
+  "description": "Screen-free voice companion enforcing pitch-black pocket presence on outdoor walks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0B0E",
+  "theme_color": "#0A0B0E",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
