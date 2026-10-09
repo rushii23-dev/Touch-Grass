@@ -24,8 +24,13 @@ export function PitchBlackCard() {
   return (
     <MinimalCard>
       <div className="flex flex-col items-start text-left">
-        <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-300 flex items-center justify-center mb-4">
-          <Moon className="w-5 h-5" />
+        <div className="flex items-center justify-between w-full mb-4">
+          <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-300 flex items-center justify-center">
+            <Moon className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 bg-white/[0.03] border border-white/[0.06] px-2 py-0.5 rounded">
+            0% Light
+          </span>
         </div>
         <h3 className="text-sm font-semibold text-white tracking-wide">
           Pitch Black OLED
