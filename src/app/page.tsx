@@ -1,69 +1,145 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useCallback } from 'react';
+import { LandingPage } from '@/components/LandingPage';
+import { PitchBlackScreen } from '@/components/PitchBlackScreen';
+import { PermissionWaterfallModal } from '@/components/PermissionWaterfallModal';
+import { SensorSimulatorDrawer } from '@/components/SensorSimulatorDrawer';
+import { executePermissionWaterfall, WaterfallProgress } from '@/lib/sensors/permissionWaterfall';
+import { useWakeLock } from '@/hooks/useWakeLock';
+import { useDeviceOrientation } from '@/hooks/useDeviceOrientation';
+import { useAudioStream } from '@/hooks/useAudioStream';
+import { ScreenLookedAtEvent } from '@/types/sensors';
 
 export default function Home() {
+  const [isWalking, setIsWalking] = useState<boolean>(false);
+  const [waterfallProgress, setWaterfallProgress] = useState<WaterfallProgress | null>(null);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [isLookedAt, setIsLookedAt] = useState<boolean>(false);
+  const [interruptCount, setInterruptCount] = useState<number>(0);
+  const [lastInterruptEvent, setLastInterruptEvent] = useState<ScreenLookedAtEvent | null>(null);
+  const [showSimulator, setShowSimulator] = useState<boolean>(false);
+
+  // Manage Screen Wake Lock
+  const { isLocked: isWakeLocked, isSupported: isWakeLockSupported } = useWakeLock(isWalking);
+
+  // Manage Live Mic Level
+  const { audioLevel, stopStream } = useAudioStream(micStream);
+
+  // Handle the Gyroscope Interrupt: Pocket -> Viewing
+  const handleScreenLookedAt = useCallback((event: ScreenLookedAtEvent) => {
+    setIsLookedAt(true);
+    setInterruptCount((prev) => prev + 1);
+    setLastInterruptEvent(event);
+
+    // Haptic buzz on supported mobile devices
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([120, 80, 120]);
+      } catch (err) {
+        console.warn('Haptic vibration not allowed:', err);
+      }
+    }
+
+    console.warn(
+      `[Canopy Interrupt] onScreenLookedAt fired! Beta: ${event.beta.toFixed(1)}°, Gamma: ${event.gamma.toFixed(1)}°`
+    );
+  }, []);
+
+  // Handle Return to Pocket
+  const handlePocketReturned = useCallback(() => {
+    setIsLookedAt(false);
+    console.log('[Canopy] Phone returned to pocket angle.');
+  }, []);
+
+  // Orientation Sensor Engine
+  const {
+    orientation,
+    state: orientationState,
+    isSupported: isOrientationSupported,
+    simulateOrientation,
+  } = useDeviceOrientation({
+    enabled: isWalking,
+    onScreenLookedAt: handleScreenLookedAt,
+    onPocketReturned: handlePocketReturned,
+    debounceMs: 250,
+  });
+
+  // Start Walk Trigger: Sequential Permission Waterfall
+  const startWalk = async () => {
+    try {
+      const { micStream: stream } = await executePermissionWaterfall((progress) => {
+        setWaterfallProgress(progress);
+      });
+
+      // Brief delay to allow the user to see the success checkmarks
+      setTimeout(() => {
+        setMicStream(stream);
+        setIsWalking(true);
+        setWaterfallProgress(null);
+      }, 500);
+    } catch (err) {
+      console.error('[Canopy] Permission waterfall failed:', err);
+      // waterfallProgress modal handles showing retry / error state
+    }
+  };
+
+  // End Walk Trigger
+  const endWalk = () => {
+    stopStream();
+    setMicStream(null);
+    setIsWalking(false);
+    setIsLookedAt(false);
+    setInterruptCount(0);
+    setLastInterruptEvent(null);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      {/* 
+        Phase 1 Core Requirement:
+        Once permissions are granted, transition UI to isWalking = true.
+        Render 100% black screen with no visible UI elements.
+      */}
+      {isWalking ? (
+        <PitchBlackScreen
+          onEndWalk={endWalk}
+          orientationData={orientation}
+          isLookedAt={isLookedAt}
+          interruptCount={interruptCount}
+          lastInterruptEvent={lastInterruptEvent}
+          onSimulateTilt={simulateOrientation}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      ) : (
+        <LandingPage
+          onStartWalk={startWalk}
+          isLoading={!!waterfallProgress && waterfallProgress.status === 'running'}
+          isWakeLockSupported={isWakeLockSupported}
+          isOrientationSupported={isOrientationSupported}
+        />
+      )}
+
+      {/* Permission Waterfall Overlay */}
+      {waterfallProgress && (
+        <PermissionWaterfallModal
+          progress={waterfallProgress}
+          onRetry={startWalk}
+          onCancel={() => setWaterfallProgress(null)}
+        />
+      )}
+
+      {/* Desktop / Testing Sensor Simulation Drawer (Shown during development / on landing page) */}
+      {!isWalking && (
+        <SensorSimulatorDrawer
+          orientation={orientation}
+          state={orientationState}
+          audioLevel={audioLevel}
+          isWakeLocked={isWakeLocked}
+          onSimulate={simulateOrientation}
+          isOpen={showSimulator}
+          onToggle={() => setShowSimulator((prev) => !prev)}
+        />
+      )}
+    </>
   );
 }
