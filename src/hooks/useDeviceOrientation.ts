@@ -1,8 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from 'react';
 import { OrientationData, OrientationState, ScreenLookedAtEvent } from '@/types/sensors';
 import { classifyOrientation } from '@/lib/sensors/orientationClassifier';
+
+function subscribeToOrientation() {
+  return () => {};
+}
+
+function getOrientationSnapshot() {
+  return typeof window !== 'undefined' && 'DeviceOrientationEvent' in window;
+}
+
+function getOrientationServerSnapshot() {
+  return false;
+}
 
 interface UseDeviceOrientationOptions {
   enabled: boolean;
@@ -26,7 +38,11 @@ export function useDeviceOrientation({
   });
 
   const [state, setState] = useState<OrientationState>('unknown');
-  const [isSupported, setIsSupported] = useState(false);
+  const isSupported = useSyncExternalStore(
+    subscribeToOrientation,
+    getOrientationSnapshot,
+    getOrientationServerSnapshot
+  );
 
   // Keep references to prevent stale closures
   const prevStateRef = useRef<OrientationState>('unknown');
@@ -91,8 +107,6 @@ export function useDeviceOrientation({
     if (typeof window === 'undefined') return;
 
     const hasOrientationEvent = 'DeviceOrientationEvent' in window;
-    setIsSupported(hasOrientationEvent);
-
     if (!enabled || !hasOrientationEvent) return;
 
     const onDeviceOrientation = (event: DeviceOrientationEvent) => {

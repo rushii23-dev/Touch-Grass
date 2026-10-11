@@ -1,18 +1,32 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
+
+function subscribeToWakeLock() {
+  return () => {};
+}
+
+function getWakeLockSnapshot() {
+  return typeof navigator !== 'undefined' && 'wakeLock' in navigator && !!navigator.wakeLock;
+}
+
+function getWakeLockServerSnapshot() {
+  return false;
+}
 
 export function useWakeLock(isActive: boolean) {
   const [isLocked, setIsLocked] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const isSupported = useSyncExternalStore(
+    subscribeToWakeLock,
+    getWakeLockSnapshot,
+    getWakeLockServerSnapshot
+  );
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
 
-  useEffect(() => {
-    setIsSupported('wakeLock' in navigator && !!navigator.wakeLock);
-  }, []);
-
   const requestLock = useCallback(async () => {
-    if (!('wakeLock' in navigator) || !navigator.wakeLock) return null;
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator) || !navigator.wakeLock) {
+      return null;
+    }
     try {
       const sentinel = await navigator.wakeLock.request('screen');
       sentinelRef.current = sentinel;
@@ -44,16 +58,46 @@ export function useWakeLock(isActive: boolean) {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (isActive) {
-      requestLock();
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && navigator.wakeLock) {
+        navigator.wakeLock
+          .request('screen')
+          .then((sentinel) => {
+            if (!isMounted) {
+              sentinel.release().catch(() => {});
+              return;
+            }
+            sentinelRef.current = sentinel;
+            setIsLocked(true);
+
+            sentinel.addEventListener('release', () => {
+              if (isMounted) setIsLocked(false);
+              sentinelRef.current = null;
+            });
+          })
+          .catch((err) => {
+            console.warn('[useWakeLock] Failed to acquire wake lock:', err);
+            if (isMounted) setIsLocked(false);
+          });
+      }
     } else {
-      releaseLock();
+      if (sentinelRef.current) {
+        sentinelRef.current.release().catch(() => {});
+        sentinelRef.current = null;
+        setIsLocked(false);
+      }
     }
 
     return () => {
-      releaseLock();
+      isMounted = false;
+      if (sentinelRef.current) {
+        sentinelRef.current.release().catch(() => {});
+        sentinelRef.current = null;
+      }
     };
-  }, [isActive, requestLock, releaseLock]);
+  }, [isActive]);
 
   // Re-acquire wake lock if tab becomes visible again while active
   useEffect(() => {

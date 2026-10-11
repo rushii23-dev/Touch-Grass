@@ -4,15 +4,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useAudioStream(stream: MediaStream | null) {
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
+  const isCapturing = stream !== null;
+
   useEffect(() => {
     if (!stream) {
-      setIsCapturing(false);
-      setAudioLevel(0);
       return;
     }
 
@@ -27,8 +26,6 @@ export function useAudioStream(stream: MediaStream | null) {
       analyser.smoothingTimeConstant = 0.8;
       source.connect(analyser);
       analyserRef.current = analyser;
-
-      setIsCapturing(true);
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
@@ -60,6 +57,7 @@ export function useAudioStream(stream: MediaStream | null) {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => {});
       }
+      setAudioLevel(0);
     };
   }, [stream]);
 
