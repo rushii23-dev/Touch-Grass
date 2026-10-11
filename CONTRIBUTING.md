@@ -49,6 +49,7 @@ Thank you for your interest in contributing to **Touch Grass**! We strive to mai
    ```bash
    npm run typecheck
    npm run lint
+   npm test
    ```
 
 5. Push and submit a Pull Request!

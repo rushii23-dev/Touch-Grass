@@ -111,6 +111,9 @@ npm run typecheck
 
 # ESLint code style check
 npm run lint
+
+# Unit tests suite
+npm test
 ```
 
 ---
